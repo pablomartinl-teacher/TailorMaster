@@ -3,22 +3,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sastre Veloz - Multijugador Directo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
 
     <style>
-        body { user-select: none; }
+        body { user-select: none; overscroll-behavior: none; }
         .screen { display: none; }
         .screen.active { display: flex; }
         
-        .perspective-1000 { perspective: 1000px; }
-        .transform-style-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
-        .rotate-y-180 { transform: rotateY(180deg); }
-        .rotate-y-0 { transform: rotateY(0deg); }
-        .card-transition { transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); }
+        /* Solución Bug Safari 3D */
+        .perspective-1000 { perspective: 1000px; -webkit-perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; -webkit-transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+        
+        .rotate-y-180 { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
+        .rotate-y-0 { transform: rotateY(0deg); -webkit-transform: rotateY(0deg); }
+        .card-transition { transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); -webkit-transition: -webkit-transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); }
 
         .bell-shadow { box-shadow: 0 8px 0 #991b1b, 0 15px 20px rgba(0,0,0,0.4); }
         .bell-shadow:active { box-shadow: 0 0px 0 #991b1b, 0 5px 10px rgba(0,0,0,0.4); transform: translateY(8px); }
@@ -30,6 +32,7 @@
             position: relative; overflow: hidden;
             border: 4px solid #374151; border-radius: 8px;
             margin: 0 auto;
+            flex-shrink: 0;
         }
 
         .tool-frame {
@@ -40,7 +43,7 @@
         .tool-frame:active { cursor: grabbing; }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen w-full flex flex-col font-sans overflow-y-auto overflow-x-hidden">
+<body class="bg-slate-900 text-white min-h-screen w-full flex flex-col font-sans overflow-hidden">
 
     <!-- LOADING SCREEN -->
     <div id="loading-screen" class="screen active flex-col items-center justify-center min-h-screen px-4">
@@ -49,8 +52,8 @@
     </div>
 
     <!-- LOBBY SCREEN -->
-    <div id="lobby-screen" class="screen flex-col items-center justify-center min-h-screen px-4 py-8">
-        <h1 class="text-4xl md:text-6xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 text-center leading-tight">
+    <div id="lobby-screen" class="screen flex-col items-center justify-center min-h-screen px-4 py-8 overflow-y-auto">
+        <h1 class="text-4xl md:text-6xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 text-center leading-tight">
             Sastre Veloz <br><span class="text-2xl md:text-3xl text-blue-400">P2P Directo</span>
         </h1>
         
@@ -92,51 +95,51 @@
 
     <!-- GAME SCREEN -->
     <div id="game-screen" class="screen flex-col min-h-screen w-full relative">
-        <!-- HUD -->
-        <div class="flex justify-between items-center bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-20 shadow-md">
+        <!-- HUD Superior Compacto -->
+        <div class="flex justify-between items-center bg-slate-800 border-b border-slate-700 px-4 py-2 sticky top-0 z-20 shadow-md">
             <div class="flex flex-col">
-                <span class="text-xs text-gray-400 font-bold">TÚ (<span id="ui-my-name">...</span>)</span>
-                <span id="my-score" class="text-3xl font-bold text-yellow-400 leading-none">0</span>
+                <span class="text-[10px] text-gray-400 font-bold uppercase truncate max-w-[80px]">TÚ (<span id="ui-my-name">...</span>)</span>
+                <span id="my-score" class="text-2xl font-bold text-yellow-400 leading-none">0</span>
             </div>
-            <div class="flex flex-col items-center bg-slate-900 px-6 py-2 rounded-full border border-slate-700">
-                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Ronda</span>
-                <span id="round-display" class="text-2xl font-bold text-white leading-none">1</span>
+            <div class="flex flex-col items-center bg-slate-900 px-4 py-1 rounded-full border border-slate-700">
+                <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Ronda</span>
+                <span id="round-display" class="text-xl font-bold text-white leading-none">1</span>
             </div>
             <div class="flex flex-col items-end">
-                <span id="opp-name" class="text-xs text-gray-400 uppercase font-bold">RIVAL</span>
-                <span id="opp-score" class="text-3xl font-bold text-blue-400 leading-none">0</span>
+                <span class="text-[10px] text-gray-400 font-bold uppercase truncate max-w-[80px]">RIVAL (<span id="opp-name">...</span>)</span>
+                <span id="opp-score" class="text-2xl font-bold text-blue-400 leading-none">0</span>
             </div>
         </div>
 
-        <!-- Área Central (Tarjeta y Timbre) -->
-        <div class="flex flex-col items-center justify-center flex-none bg-slate-800 gap-6 py-8 relative">
+        <!-- Área Central (Tarjeta y Timbre) Optimizado para espacio -->
+        <div class="flex flex-row items-center justify-center bg-slate-800 gap-6 py-4 px-2 relative shrink-0">
             <!-- Mazo 3D -->
-            <div class="w-32 h-32 perspective-1000">
-                <div id="target-card" class="w-full h-full relative transform-style-3d card-transition rotate-y-0">
+            <div class="w-28 h-28 perspective-1000 shrink-0">
+                <div id="target-card" class="w-full h-full relative transform-style-3d rotate-y-0 card-transition">
                     <!-- Reverso: Icono -->
-                    <div class="absolute w-full h-full backface-hidden bg-white rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] border-4 border-gray-300 flex flex-col items-center justify-center">
-                        <p class="text-gray-500 font-bold text-sm mb-2 tracking-widest">HERRAMIENTA</p>
-                        <div id="card-tool-icon" class="w-16 h-16 flex items-center justify-center"></div>
+                    <div class="absolute w-full h-full backface-hidden bg-white rounded-xl shadow-lg border-4 border-gray-300 flex flex-col items-center justify-center">
+                        <p class="text-gray-500 font-bold text-[10px] mb-1 tracking-widest">BUSCAR</p>
+                        <div id="card-tool-icon" class="w-14 h-14 flex items-center justify-center"></div>
                     </div>
-                    <!-- Anverso: Patrón a buscar (Rediseñado para ser infalible) -->
-                    <div class="absolute w-full h-full backface-hidden bg-white rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] border-4 border-gray-300 rotate-y-180 flex flex-col items-center justify-center overflow-hidden">
-                        <div id="card-pattern-view" class="w-[100px] h-[100px] relative"></div>
+                    <!-- Anverso: Patrón a buscar. IMPORTANTE: Sin overflow-hidden aquí para evitar el bug de iOS Safari -->
+                    <div class="absolute w-full h-full backface-hidden bg-white rounded-xl shadow-lg border-4 border-gray-300 rotate-y-180 flex flex-col items-center justify-center">
+                        <!-- El overflow hidden se aplica solo a este div interior -->
+                        <div id="card-pattern-view" style="width: 100px; height: 100px; position: relative; overflow: hidden; border-radius: 6px;"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Timbre -->
-            <button id="bell-btn" class="w-24 h-24 bg-red-600 rounded-full bell-shadow flex items-center justify-center border-4 border-red-800 transition-all focus:outline-none" onclick="hitBell()">
-                <span class="font-bold text-white text-xl tracking-tighter">¡TIMBRE!</span>
+            <button id="bell-btn" class="w-20 h-20 bg-red-600 rounded-full bell-shadow flex items-center justify-center border-4 border-red-800 transition-all focus:outline-none shrink-0" onclick="hitBell()">
+                <span class="font-bold text-white text-lg tracking-tighter">TIMBRE</span>
             </button>
         </div>
 
         <!-- Tablero de Juego Personal -->
-        <div class="bg-slate-900 p-6 flex-1 flex justify-center items-start shadow-inner">
-            <div class="cloth-container relative" id="cloth-board">
-                <!-- El fondo Bauhaus se inyecta aquí sin pisar los marcos -->
-                
-                <!-- Marcos Troquelados (Conservan su estilo original) -->
+        <div class="bg-slate-900 p-2 md:p-6 flex-1 flex justify-center items-start shadow-inner overflow-hidden">
+            <div class="cloth-container" id="cloth-board">
+                <!-- SVG inyectado por JS -->
+                <!-- Marcos -->
                 <div id="tool-shirt" class="tool-frame" style="transform: translate(10px, 210px);" data-x="10" data-y="210" data-type="shirt">
                     <svg viewBox="0 0 100 100" width="100" height="100" class="drop-shadow-lg">
                         <path d="M0,0 L100,0 L100,100 L0,100 Z M10,20 Q50,0 90,20 L100,50 Q85,60 75,50 L75,90 Q50,100 25,90 L25,50 Q15,60 0,50 Z" fill-rule="evenodd" fill="#3b82f6" fill-opacity="0.95" stroke="#1e3a8a" stroke-width="2"/>
@@ -153,19 +156,19 @@
 
     <!-- OVERLAY DE VERIFICACIÓN -->
     <div id="verify-screen" class="screen absolute inset-0 z-50 bg-slate-900/95 flex-col items-center justify-center backdrop-blur-sm">
-        <h2 id="verify-title" class="text-4xl font-bold text-white mb-8 text-center px-4 animate-pulse"></h2>
-        <div class="bg-white rounded-2xl p-10 flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-            <div id="verify-icon" class="w-24 h-24 mb-6"></div>
-            <p id="verify-message" class="text-3xl text-center"></p>
+        <h2 id="verify-title" class="text-3xl font-bold text-white mb-8 text-center px-4 animate-pulse"></h2>
+        <div class="bg-white rounded-2xl p-8 flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+            <div id="verify-icon" class="w-20 h-20 mb-4"></div>
+            <p id="verify-message" class="text-2xl text-center"></p>
         </div>
     </div>
 
     <!-- PANTALLA FINAL -->
     <div id="end-screen" class="screen flex-col items-center justify-center min-h-screen bg-slate-900 relative z-50 px-4 py-8">
-        <h1 class="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 text-center">Partida Terminada</h1>
-        <h2 id="winner-name" class="text-4xl font-bold text-white mb-10 text-center"></h2>
-        <div id="end-scores" class="flex gap-6 mb-12"></div>
-        <button onclick="window.location.reload()" class="bg-white text-slate-900 font-bold text-xl px-10 py-5 rounded-xl shadow-lg hover:bg-gray-200 transition-colors">Volver al Menú</button>
+        <h1 class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 text-center">Partida Terminada</h1>
+        <h2 id="winner-name" class="text-3xl font-bold text-white mb-8 text-center"></h2>
+        <div id="end-scores" class="flex gap-4 mb-10 w-full justify-center"></div>
+        <button onclick="window.location.reload()" class="bg-white text-slate-900 font-bold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-gray-200 transition-colors">Volver al Menú</button>
     </div>
 
     <script>
@@ -175,8 +178,8 @@
 
         const CLOTH_SIZE = 320;
         const TOOL_SIZE = 100;
-        const TOLERANCE = 25; // Margen de error en píxeles
-        const PREFIX = 'sastre-game-p2p-'; // Para aislar las salas
+        const TOLERANCE = 25; 
+        const PREFIX = 'sastre-game-p2p-v2-'; // Prefijo único para aislar versiones
 
         window.game = {
             peer: null, conn: null, isHost: false,
@@ -192,7 +195,7 @@
             document.getElementById(id).classList.add('active');
         };
 
-        // Generación del SVG maestro (Bauhaus)
+        // 1. Generación de tablero seguro
         const generateMasterPattern = () => {
             const colors = ['#0f308a', '#93c5fd', '#fbbf24', '#f97316', '#ef4444', '#10b981'];
             const w = CLOTH_SIZE / 4; 
@@ -224,12 +227,10 @@
             });
 
             game.clothSVG = `<svg width="${CLOTH_SIZE}" height="${CLOTH_SIZE}" viewBox="0 0 ${CLOTH_SIZE} ${CLOTH_SIZE}" xmlns="http://www.w3.org/2000/svg" style="position:absolute; top:0; left:0; z-index:0; border-radius:8px;">${svg}</svg>`;
-            
-            // Inyectamos el SVG AL PRINCIPIO del contenedor, así NO destruimos los marcos (tool-shirt, tool-pants)
             document.getElementById('cloth-board').insertAdjacentHTML('afterbegin', game.clothSVG);
         };
 
-        // --- SISTEMA DE COMUNICACIÓN ---
+        // 2. Conexión de Red P2P
         const setupConnection = (conn) => {
             game.conn = conn;
             
@@ -257,14 +258,12 @@
                         startRound(0);
                         break;
                     case 'BELL_HIT': 
-                        // El anfitrión procesa y arbitra el golpe del invitado
                         if (game.isHost && game.isLocalRoundActive) {
                             setBellState(false);
                             processBellResult('guest', data.correct);
                         }
                         break;
                     case 'VERIFY_RESULT': 
-                        // El invitado recibe la resolución del anfitrión
                         setBellState(false);
                         game.scores = data.scores; 
                         updateScoreUI();
@@ -297,7 +296,7 @@
             
             game.peer.on('connection', (conn) => setupConnection(conn));
             
-            game.peer.on('error', (err) => {
+            game.peer.on('error', () => {
                 alert("Error creando la sala. Intenta de nuevo.");
                 showScreen('lobby-screen');
             });
@@ -316,7 +315,6 @@
                 showScreen('waiting-screen');
                 document.getElementById('display-room-code').innerText = code;
                 document.getElementById('waiting-host-msg').innerText = "Conectando al anfitrión...";
-                
                 const conn = game.peer.connect(PREFIX + code);
                 setupConnection(conn);
             });
@@ -327,15 +325,13 @@
             });
         };
 
-        // --- MOTOR DEL JUEGO ---
+        // 3. Flujo del Juego y Reflow de Animación
         window.startGame = () => {
-            // Generar 5 objetivos seguros
             game.targets = Array.from({length: 5}, () => ({
                 x: Math.floor(Math.random() * (CLOTH_SIZE - TOOL_SIZE)),
                 y: Math.floor(Math.random() * (CLOTH_SIZE - TOOL_SIZE)),
                 tool: Math.random() > 0.5 ? 'shirt' : 'pants'
             }));
-            
             game.conn.send({ type: 'START_GAME', targets: game.targets });
             startRound(0);
         };
@@ -350,14 +346,26 @@
             prepareCard(game.targets[index]);
             showScreen('game-screen');
             
-            setBellState(false); // Desactivar timbre inicialmente
-            document.getElementById('target-card').classList.remove('rotate-y-180');
-            document.getElementById('target-card').classList.add('rotate-y-0');
+            setBellState(false); 
+            
+            const card = document.getElementById('target-card');
+            
+            // EL TRUCO DEL REFLOW: 
+            // 1. Quitar transición y forzar la rotación a 0 al instante
+            card.classList.remove('card-transition');
+            card.classList.remove('rotate-y-180');
+            card.classList.add('rotate-y-0');
+            
+            // 2. Forzar al navegador a redibujar el elemento (Reflow)
+            void card.offsetWidth;
 
-            // Voltear carta y activar ronda tras 1.5s
+            // 3. Devolver la clase de transición
+            card.classList.add('card-transition');
+
+            // 4. Voltear después del tiempo de preparación
             setTimeout(() => {
-                document.getElementById('target-card').classList.remove('rotate-y-0');
-                document.getElementById('target-card').classList.add('rotate-y-180');
+                card.classList.remove('rotate-y-0');
+                card.classList.add('rotate-y-180');
                 setBellState(true);
             }, 1500);
         };
@@ -375,38 +383,31 @@
         };
 
         const prepareCard = (target) => {
-            // Iconos vectoriales
-            const shirtIcon = `<svg viewBox="0 0 100 100" width="50" height="50"><path d="M10,20 Q50,0 90,20 L100,50 Q85,60 75,50 L75,90 Q50,100 25,90 L25,50 Q15,60 0,50 Z" fill="#3b82f6"/></svg>`;
-            const pantsIcon = `<svg viewBox="0 0 100 100" width="50" height="50"><path d="M20,10 Q50,0 80,10 L85,90 Q70,95 60,90 L50,45 L40,90 Q30,95 15,90 Z" fill="#10b981"/></svg>`;
+            const shirtIcon = `<svg viewBox="0 0 100 100" width="40" height="40"><path d="M10,20 Q50,0 90,20 L100,50 Q85,60 75,50 L75,90 Q50,100 25,90 L25,50 Q15,60 0,50 Z" fill="#3b82f6"/></svg>`;
+            const pantsIcon = `<svg viewBox="0 0 100 100" width="40" height="40"><path d="M20,10 Q50,0 80,10 L85,90 Q70,95 60,90 L50,45 L40,90 Q30,95 15,90 Z" fill="#10b981"/></svg>`;
             
             document.getElementById('card-tool-icon').innerHTML = target.tool === 'shirt' ? shirtIcon : pantsIcon;
 
-            // PLANTILLA SÓLIDA CON AGUJERO (La solución definitiva e infalible para el renderizado)
-            // Esto superpone un recuadro blanco que tapa el dibujo, excepto por la forma transparente de la prenda
+            // Plantilla blanca con recorte de la forma exacta
             const cutoutSVG = target.tool === 'shirt'
-                ? `<svg viewBox="0 0 100 100" class="absolute inset-0 z-10" width="100" height="100"><path d="M0,0 L100,0 L100,100 L0,100 Z M10,20 Q50,0 90,20 L100,50 Q85,60 75,50 L75,90 Q50,100 25,90 L25,50 Q15,60 0,50 Z" fill-rule="evenodd" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/></svg>`
-                : `<svg viewBox="0 0 100 100" class="absolute inset-0 z-10" width="100" height="100"><path d="M0,0 L100,0 L100,100 L0,100 Z M20,10 Q50,0 80,10 L85,90 Q70,95 60,90 L50,45 L40,90 Q30,95 15,90 Z" fill-rule="evenodd" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/></svg>`;
+                ? `<svg viewBox="0 0 100 100" style="position: absolute; top: 0; left: 0; z-index: 10; width: 100px; height: 100px;"><path d="M0,0 L100,0 L100,100 L0,100 Z M10,20 Q50,0 90,20 L100,50 Q85,60 75,50 L75,90 Q50,100 25,90 L25,50 Q15,60 0,50 Z" fill-rule="evenodd" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/></svg>`
+                : `<svg viewBox="0 0 100 100" style="position: absolute; top: 0; left: 0; z-index: 10; width: 100px; height: 100px;"><path d="M0,0 L100,0 L100,100 L0,100 Z M20,10 Q50,0 80,10 L85,90 Q70,95 60,90 L50,45 L40,90 Q30,95 15,90 Z" fill-rule="evenodd" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/></svg>`;
 
             document.getElementById('card-pattern-view').innerHTML = `
-                <div class="relative w-full h-full overflow-hidden" style="border-radius: 8px;">
-                    <!-- El lienzo desplazado -->
-                    <div style="position: absolute; top: 0; left: 0; transform: translate(-${target.x}px, -${target.y}px); width: ${CLOTH_SIZE}px; height: ${CLOTH_SIZE}px;">
-                        ${game.clothSVG}
-                    </div>
-                    <!-- El troquel blanco encima tapando todo menos el hueco -->
-                    ${cutoutSVG}
+                <div style="position: absolute; top: 0; left: 0; transform: translate(-${target.x}px, -${target.y}px); width: ${CLOTH_SIZE}px; height: ${CLOTH_SIZE}px;">
+                    ${game.clothSVG}
                 </div>
+                ${cutoutSVG}
             `;
         };
 
         window.hitBell = () => {
             if (!game.isLocalRoundActive) return;
-            setBellState(false); // Congelar interfaz local
+            setBellState(false); 
 
             const target = game.targets[game.currentRound];
             const activeTool = document.getElementById(`tool-${target.tool}`);
             
-            // Extraer las coordenadas exactas y seguras (data-x y data-y)
             const tX = parseFloat(activeTool.dataset.x);
             const tY = parseFloat(activeTool.dataset.y);
             
@@ -420,12 +421,8 @@
         };
 
         const processBellResult = (player, correct) => {
-            if (correct) {
-                game.scores[player]++;
-            } else {
-                const other = player === 'host' ? 'guest' : 'host';
-                game.scores[other]++;
-            }
+            if (correct) game.scores[player]++;
+            else game.scores[player === 'host' ? 'guest' : 'host']++;
 
             game.conn.send({ type: 'VERIFY_RESULT', player: player, correct: correct, scores: game.scores });
             
@@ -452,11 +449,11 @@
                 if (correct) {
                     document.getElementById('verify-icon').innerHTML = `<svg stroke="#10b981" fill="none" viewBox="0 0 24 24"><path stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`;
                     document.getElementById('verify-message').innerText = "¡Encuadre Perfecto!";
-                    document.getElementById('verify-message').className = "text-4xl font-bold text-green-500 text-center";
+                    document.getElementById('verify-message').className = "text-3xl md:text-4xl font-bold text-green-500 text-center";
                 } else {
                     document.getElementById('verify-icon').innerHTML = `<svg stroke="#ef4444" fill="none" viewBox="0 0 24 24"><path stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`;
                     document.getElementById('verify-message').innerText = "¡Falló! Tela equivocada.";
-                    document.getElementById('verify-message').className = "text-4xl font-bold text-red-500 text-center";
+                    document.getElementById('verify-message').className = "text-3xl md:text-4xl font-bold text-red-500 text-center";
                 }
             }, 800);
 
@@ -491,12 +488,12 @@
             document.getElementById('winner-name').innerText = winnerName === "¡Empate!" ? winnerName : `¡${winnerName} Gana!`;
             
             document.getElementById('end-scores').innerHTML = `
-                <div class="bg-slate-800 border-2 border-slate-700 p-8 rounded-2xl text-center shadow-lg"><p class="text-gray-400 font-bold mb-2 uppercase tracking-wide">${game.myName}</p><p class="text-6xl text-yellow-400 font-bold">${game.isHost ? game.scores.host : game.scores.guest}</p></div>
-                <div class="bg-slate-800 border-2 border-slate-700 p-8 rounded-2xl text-center shadow-lg"><p class="text-gray-400 font-bold mb-2 uppercase tracking-wide">${game.oppName}</p><p class="text-6xl text-blue-400 font-bold">${game.isHost ? game.scores.guest : game.scores.host}</p></div>
+                <div class="bg-slate-800 border-2 border-slate-700 p-4 md:p-8 rounded-2xl text-center shadow-lg w-1/2 max-w-[200px]"><p class="text-gray-400 font-bold mb-2 uppercase tracking-wide truncate">${game.myName}</p><p class="text-5xl md:text-6xl text-yellow-400 font-bold">${game.isHost ? game.scores.host : game.scores.guest}</p></div>
+                <div class="bg-slate-800 border-2 border-slate-700 p-4 md:p-8 rounded-2xl text-center shadow-lg w-1/2 max-w-[200px]"><p class="text-gray-400 font-bold mb-2 uppercase tracking-wide truncate">${game.oppName}</p><p class="text-5xl md:text-6xl text-blue-400 font-bold">${game.isHost ? game.scores.guest : game.scores.host}</p></div>
             `;
         };
 
-        // --- SISTEMA DRAG & DROP (Táctil y Ratón) ---
+        // 4. Mecánica de Control 
         const makeDraggable = (element, toolType) => {
             let isDragging = false;
             let startX, startY, initialX, initialY;
@@ -517,7 +514,6 @@
                 let newX = initialX + (e.clientX - startX);
                 let newY = initialY + (e.clientY - startY);
                 
-                // Límites seguros del tablero
                 newX = Math.max(0, Math.min(newX, CLOTH_SIZE - TOOL_SIZE));
                 newY = Math.max(0, Math.min(newY, CLOTH_SIZE - TOOL_SIZE));
 
@@ -538,9 +534,7 @@
             element.addEventListener('pointercancel', endDrag);
         };
 
-        // INICIALIZACIÓN
         window.onload = () => {
-            // Se ejecuta de forma segura al cargar la página
             generateMasterPattern();
             makeDraggable(document.getElementById('tool-shirt'), 'shirt');
             makeDraggable(document.getElementById('tool-pants'), 'pants');
